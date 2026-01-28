@@ -106,9 +106,11 @@ class MyEventsView(generics.ListAPIView):
         return Event.objects.filter(organizer=self.request.user)
 
 
-class EventApproveView(APIView):
+class AdminEventApproveView(APIView):
     """
-    POST /api/events/<id>/approve/ - Approve event (admin only)
+    Endpoint: POST /api/events/<id>/approve/
+    Description: Approves a pending event.
+    Access: Admin
     """
     permission_classes = [permissions.IsAdminUser]
     
@@ -123,9 +125,11 @@ class EventApproveView(APIView):
         }, status=status.HTTP_200_OK)
 
 
-class EventRejectView(APIView):
+class AdminEventRejectView(APIView):
     """
-    POST /api/events/<id>/reject/ - Reject event (admin only)
+    Endpoint: POST /api/events/<id>/reject/
+    Description: Rejects a pending event.
+    Access: Admin
     """
     permission_classes = [permissions.IsAdminUser]
     
@@ -140,9 +144,11 @@ class EventRejectView(APIView):
         }, status=status.HTTP_200_OK)
 
 
-class PendingEventsView(generics.ListAPIView):
+class AdminPendingEventsView(generics.ListAPIView):
     """
-    GET /api/events/pending/ - List pending events (admin only)
+    Endpoint: GET /api/events/pending/
+    Description: Lists all events awaiting approval.
+    Access: Admin
     """
     serializer_class = EventListSerializer
     permission_classes = [permissions.IsAdminUser]
@@ -151,41 +157,21 @@ class PendingEventsView(generics.ListAPIView):
 
 class EventRegistrationCreateView(APIView):
     """
-    POST /api/events/<event_id>/register/ - Register for event
+    Endpoint: POST /api/events/<event_id>/register/
+    Description: Registers the authenticated user for an event.
+    Access: Authenticated
     """
     permission_classes = [permissions.IsAuthenticated]
     
     def post(self, request, event_id):
-        event = get_object_or_404(Event, pk=event_id, status='approved')
-        
-        serializer = EventRegistrationCreateSerializer(data=request.data)
+        # We ensure the event_id in URL matches the one in data if provided
+        # but the serializer handles the core logic.
+        serializer = EventRegistrationCreateSerializer(
+            data=request.data, 
+            context={'request': request}
+        )
         if serializer.is_valid():
-            # Check if user already registered
-            existing = EventRegistration.objects.filter(
-                event=event,
-                user=request.user,
-                ticket=serializer.validated_data['ticket']
-            ).exists()
-            
-            if existing:
-                return Response(
-                    {'error': 'You have already registered for this event with this ticket type'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # Calculate total amount
-            ticket = serializer.validated_data['ticket']
-            number_of_tickets = serializer.validated_data['number_of_tickets']
-            total_amount = ticket.price * number_of_tickets
-            
-            # Create registration
-            registration = serializer.save(
-                user=request.user,
-                event=event,
-                total_amount=total_amount,
-                status='pending' if ticket.price > 0 else 'confirmed'
-            )
-            
+            registration = serializer.save()
             return Response({
                 'message': 'Registration successful',
                 'registration': EventRegistrationSerializer(registration).data

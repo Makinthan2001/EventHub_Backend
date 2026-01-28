@@ -217,15 +217,47 @@ class EventRegistrationCreateSerializer(serializers.ModelSerializer):
         ]
     
     def validate(self, attrs):
+        user = self.context['request'].user
+        event = attrs['event']
         ticket = attrs['ticket']
         number_of_tickets = attrs['number_of_tickets']
         
-        # Check if enough seats available
+        # 1. Check if event is approved
+        if event.status != 'approved':
+            raise serializers.ValidationError({'event': 'Registration is only allowed for approved events.'})
+            
+        # 2. Check if user already registered for this event with this ticket
+        existing = EventRegistration.objects.filter(
+            event=event,
+            user=user,
+            ticket=ticket
+        ).exists()
+        if existing:
+            raise serializers.ValidationError('You have already registered for this event with this ticket type.')
+            
+        # 3. Check if enough seats available
+        from django.db.models import Sum
         booked = ticket.registrations.filter(status='confirmed').aggregate(
-            total=models.Sum('number_of_tickets')
+            total=Sum('number_of_tickets')
         )['total'] or 0
         
         if booked + number_of_tickets > ticket.available_seats:
-            raise serializers.ValidationError('Not enough seats available')
+            raise serializers.ValidationError('Not enough seats available.')
         
         return attrs
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        ticket = validated_data['ticket']
+        number_of_tickets = validated_data['number_of_tickets']
+        
+        # Calculate amount and initial status
+        total_amount = ticket.price * number_of_tickets
+        status = 'pending' if ticket.price > 0 else 'confirmed'
+        
+        return EventRegistration.objects.create(
+            user=user,
+            total_amount=total_amount,
+            status=status,
+            **validated_data
+        )

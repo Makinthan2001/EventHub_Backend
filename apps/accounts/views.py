@@ -19,10 +19,11 @@ from .serializers import (
 User = get_user_model()
 
 
-class UserRegistrationView(APIView):
+class AccountRegistrationView(APIView):
     """
-    POST /api/auth/register/
-    Register a new user
+    Endpoint: POST /api/auth/register/
+    Description: Registers a new user and returns JWT tokens.
+    Access: Public
     """
     permission_classes = [permissions.AllowAny]
     
@@ -30,8 +31,6 @@ class UserRegistrationView(APIView):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            
-            # Generate JWT tokens
             refresh = RefreshToken.for_user(user)
             
             return Response({
@@ -46,10 +45,11 @@ class UserRegistrationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class UserLoginView(APIView):
+class AccountLoginView(APIView):
     """
-    POST /api/auth/login/
-    Login user and return JWT tokens
+    Endpoint: POST /api/auth/login/
+    Description: Authenticates user and returns JWT tokens.
+    Access: Public
     """
     permission_classes = [permissions.AllowAny]
     
@@ -57,12 +57,8 @@ class UserLoginView(APIView):
         serializer = UserLoginSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             user = serializer.validated_data['user']
-            
-            # Update last_login timestamp
             user.last_login = timezone.now()
             user.save(update_fields=['last_login'])
-            
-            # Generate JWT tokens
             refresh = RefreshToken.for_user(user)
             
             return Response({
@@ -77,10 +73,11 @@ class UserLoginView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class UserLogoutView(APIView):
+class AccountLogoutView(APIView):
     """
-    POST /api/auth/logout/
-    Logout user (blacklist refresh token)
+    Endpoint: POST /api/auth/logout/
+    Description: Blacklists the provided refresh token.
+    Access: Authenticated
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -95,10 +92,11 @@ class UserLogoutView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class UserProfileView(APIView):
+class AccountProfileView(APIView):
     """
-    GET /api/auth/profile/
-    Get current user profile
+    Endpoint: GET /api/auth/profile/
+    Description: Retrieves the current user's profile details.
+    Access: Authenticated
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -107,10 +105,11 @@ class UserProfileView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class UserProfileUpdateView(APIView):
+class AccountProfileUpdateView(APIView):
     """
-    PUT/PATCH /api/auth/profile/update/
-    Update user profile
+    Endpoint: PUT/PATCH /api/auth/profile/update/
+    Description: Updates the current user's profile information.
+    Access: Authenticated
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -128,10 +127,11 @@ class UserProfileUpdateView(APIView):
         return self.put(request)
 
 
-class ChangePasswordView(APIView):
+class AccountChangePasswordView(APIView):
     """
-    POST /api/auth/change-password/
-    Change user password
+    Endpoint: POST /api/auth/change-password/
+    Description: Changes the password for the current user.
+    Access: Authenticated
     """
     permission_classes = [permissions.IsAuthenticated]
     
@@ -139,25 +139,43 @@ class ChangePasswordView(APIView):
         serializer = ChangePasswordSerializer(data=request.data)
         if serializer.is_valid():
             user = request.user
-            
-            # Check old password
             if not user.check_password(serializer.validated_data['old_password']):
                 return Response({'old_password': ['Wrong password']}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Set new password
             user.set_password(serializer.validated_data['new_password'])
             user.save()
-            
             return Response({'message': 'Password changed successfully'}, status=status.HTTP_200_OK)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class UserListView(generics.ListAPIView):
+class AdminUserListView(generics.ListAPIView):
     """
-    GET /api/auth/users/
-    List all users (admin only)
+    Endpoint: GET /api/auth/users/
+    Description: Lists all users in the system.
+    Access: Admin
     """
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
+
+
+class AdminUserToggleStatusView(APIView):
+    """
+    Endpoint: PATCH /api/auth/users/<id>/toggle/
+    Description: Toggles the is_active status of a user.
+    Access: Admin
+    """
+    permission_classes = [permissions.IsAdminUser]
+    
+    def patch(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+            user.is_active = not user.is_active
+            user.save()
+            return Response({
+                'message': f'User {"enabled" if user.is_active else "disabled"} successfully',
+                'is_active': user.is_active
+            }, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)

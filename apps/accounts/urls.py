@@ -4,27 +4,29 @@ URL routing for accounts app
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
-    UserRegistrationView,
-    UserLoginView,
-    UserLogoutView,
-    UserProfileView,
-    UserProfileUpdateView,
-    ChangePasswordView,
-    UserListView,
+    AccountRegistrationView,
+    AccountLoginView,
+    AccountLogoutView,
+    AccountProfileView,
+    AccountProfileUpdateView,
+    AccountChangePasswordView,
+    AdminUserListView,
+    AdminUserToggleStatusView,
 )
 
 urlpatterns = [
-    # Authentication
-    path('register/', UserRegistrationView.as_view(), name='register'),
-    path('login/', UserLoginView.as_view(), name='login'),
-    path('logout/', UserLogoutView.as_view(), name='logout'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # Authentication & Session
+    path('register/', AccountRegistrationView.as_view(), name='account-register'),
+    path('login/', AccountLoginView.as_view(), name='account-login'),
+    path('logout/', AccountLogoutView.as_view(), name='account-logout'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     
-    # User Profile
-    path('profile/', UserProfileView.as_view(), name='profile'),
-    path('profile/update/', UserProfileUpdateView.as_view(), name='profile-update'),
-    path('change-password/', ChangePasswordView.as_view(), name='change-password'),
+    # User Profile Management
+    path('profile/', AccountProfileView.as_view(), name='account-profile'),
+    path('profile/update/', AccountProfileUpdateView.as_view(), name='account-profile-update'),
+    path('change-password/', AccountChangePasswordView.as_view(), name='account-change-password'),
     
-    # Admin
-    path('users/', UserListView.as_view(), name='user-list'),
+    # Admin User Management
+    path('users/', AdminUserListView.as_view(), name='admin-user-list'),
+    path('users/<int:pk>/toggle/', AdminUserToggleStatusView.as_view(), name='admin-user-toggle-status'),
 ]
