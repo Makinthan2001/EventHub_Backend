@@ -5,6 +5,13 @@ from django.core.exceptions import ValidationError
 User = get_user_model()
 
 def user_create(*, email: str, password: str, full_name: str, **extra_fields) -> User:
+    # Pop fields that are not in the model but might be passed from serializers
+    extra_fields.pop('password2', None)
+    
+    # Set default values for new users
+    role = extra_fields.setdefault('role', 'organizer')
+    extra_fields.setdefault('is_staff', (role == 'admin'))
+    
     user = User(email=email, full_name=full_name, **extra_fields)
     user.set_password(password)
     user.full_clean()
