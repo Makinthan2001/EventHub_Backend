@@ -14,7 +14,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'email', 'full_name', 'phone_number', 'password', 'password2']
+        fields = ['id', 'email', 'full_name', 'phone_number', 'password', 'password2', 'role']
+        read_only_fields = ['role']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -30,7 +31,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             password=validated_data['password'],
             full_name=validated_data['full_name'],
-            phone=validated_data.get('phone', '')
+            phone=validated_data.get('phone', ''),
+            role='organizer'
         )
         return user
 
@@ -64,7 +66,7 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'email', 'full_name', 'phone', 'profile_picture', 'date_joined', 'is_staff', 'is_active']
+        fields = ['id', 'email', 'full_name', 'phone', 'profile_picture', 'date_joined', 'role', 'is_staff', 'is_active']
         read_only_fields = ['id', 'date_joined', 'is_staff']
 
 

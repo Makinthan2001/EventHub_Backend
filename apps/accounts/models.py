@@ -22,6 +22,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('role', 'admin')
         
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
@@ -34,10 +35,16 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin):
     """Custom User model with email as username"""
     
+    ROLE_CHOICES = [
+        ('admin', 'Admin'),
+        ('organizer', 'Organizer'),
+    ]
+    
     email = models.EmailField(unique=True, max_length=255)
     full_name = models.CharField(max_length=255)
     phone = models.CharField(max_length=20, blank=True, null=True)
     profile_picture = models.FileField(upload_to='profiles/', blank=True, null=True)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='organizer')
     
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

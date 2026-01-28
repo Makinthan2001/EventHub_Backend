@@ -12,6 +12,7 @@ from .views import (
     AccountChangePasswordView,
     AdminUserListView,
     AdminUserToggleStatusView,
+    AdminUserChangeRoleView,
 )
 
 urlpatterns = [
@@ -29,4 +30,5 @@ urlpatterns = [
     # Admin User Management
     path('users/', AdminUserListView.as_view(), name='admin-user-list'),
     path('users/<int:pk>/toggle/', AdminUserToggleStatusView.as_view(), name='admin-user-toggle-status'),
+    path('users/<int:pk>/role/', AdminUserChangeRoleView.as_view(), name='admin-user-change-role'),
 ]
