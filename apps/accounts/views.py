@@ -179,3 +179,31 @@ class AdminUserToggleStatusView(APIView):
             }, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class AdminUserChangeRoleView(APIView):
+    """
+    Endpoint: PATCH /api/auth/users/<id>/role/
+    Description: Changes the role of a user.
+    Access: Admin
+    """
+    permission_classes = [permissions.IsAdminUser]
+    
+    def patch(self, request, pk):
+        try:
+            user = User.objects.get(pk=pk)
+            role = request.data.get('role')
+            if role not in dict(User.ROLE_CHOICES):
+                return Response({'error': 'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user.role = role
+            # Sync is_staff with admin role
+            user.is_staff = (role == 'admin')
+            user.save()
+            return Response({
+                'message': f'User role updated to {role} successfully',
+                'role': user.role,
+                'is_staff': user.is_staff
+            }, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
