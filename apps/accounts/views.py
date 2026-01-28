@@ -11,6 +11,7 @@ from .serializers import (
     UserSerializer,
     UserProfileUpdateSerializer,
 )
+from .permissions import IsAdminRole
 
 User = get_user_model()
 
@@ -59,13 +60,24 @@ class UserViewSet(viewsets.ModelViewSet):
     search_fields = ['full_name', 'email', 'mobile_number']
 
     def get_permissions(self):
+        if self.action == 'create':
+            return [IsAdminRole()]
         if self.action in ['list', 'retrieve']:
-            return [permissions.IsAdminUser()]
-        if self.action in ['update', 'partial_update']:
+            return [IsAdminRole()]
+        if self.action in ['update', 'partial_update', 'destroy']:
             return [permissions.IsAuthenticated()]
-        return [permissions.IsAdminUser()]
+        return [IsAdminRole()]
     
     def get_serializer_class(self):
         if self.action in ['update', 'partial_update']:
+            if self.request.user.role == 'admin':
+                return UserSerializer
             return UserProfileUpdateSerializer
         return UserSerializer
+
+    def get_queryset(self):
+        if self.request.user.is_authenticated:
+            if self.request.user.role == 'admin':
+                return User.objects.all()
+            return User.objects.filter(id=self.request.user.id)
+        return User.objects.none()

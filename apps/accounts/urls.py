@@ -7,9 +7,6 @@ from .views import (
     UserViewSet,
 )
 
-router = DefaultRouter()
-router.register(r'users', UserViewSet, basename='user')
-
 urlpatterns = [
     # Authentication
     path('register/', AccountRegistrationView.as_view(), name='account-register'),
@@ -17,5 +14,11 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     
     # User Management API
-    path('', include(router.urls)),
+    path('users/', UserViewSet.as_view({'get': 'list', 'post': 'create'}), name='user-list'),
+    path('users/<int:pk>/', UserViewSet.as_view({
+        'get': 'retrieve', 
+        'put': 'update', 
+        'patch': 'partial_update', 
+        'delete': 'destroy'
+    }), name='user-detail'),
 ]

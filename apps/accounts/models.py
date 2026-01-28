@@ -35,13 +35,12 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     ROLE_CHOICES = [
         ('admin', 'Admin'),
         ('organizer', 'Organizer'),
-        ('user', 'User'),
     ]
     
     email = models.EmailField(unique=True, max_length=255)
     full_name = models.CharField(max_length=255)
     mobile_number = models.CharField(max_length=20, blank=True, null=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='organizer')
     
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

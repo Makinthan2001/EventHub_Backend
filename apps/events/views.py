@@ -5,13 +5,18 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Category, Event, Ticket, Payment
 from .serializers import CategorySerializer, EventSerializer, TicketSerializer, PaymentSerializer
+from apps.accounts.permissions import IsAdminRole
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filter_backends = [filters.SearchFilter]
     search_fields = ['category_name']
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [IsAdminRole()]
 
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
@@ -21,22 +26,35 @@ class EventViewSet(viewsets.ModelViewSet):
     search_fields = ['title', 'location', 'email']
     ordering_fields = ['event_date', 'created_at']
 
+    @action(detail=False, methods=['get'], url_path='my-events')
+    def my_events(self, request):
+        """Get events created by the current user"""
+        events = self.queryset.filter(auth_id=request.user)
+        page = self.paginate_queryset(events)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        serializer = self.get_serializer(events, many=True)
+        return Response(serializer.data)
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
+        if self.action in ['approve', 'reject']:
+            return [IsAdminRole()]
         return [permissions.IsAuthenticated()]
 
     def perform_create(self, serializer):
         serializer.save(auth_id=self.request.user)
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminRole])
     def approve(self, request, pk=None):
         event = self.get_object()
         event.status = 'accepted'
         event.save()
         return Response({'status': 'event accepted'})
 
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminRole])
     def reject(self, request, pk=None):
         event = self.get_object()
         event.status = 'rejected'
