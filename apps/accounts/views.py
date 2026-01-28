@@ -19,6 +19,9 @@ from .serializers import (
 User = get_user_model()
 
 
+from .services import user_create
+from .selectors import user_list
+
 class AccountRegistrationView(APIView):
     """
     Endpoint: POST /api/auth/register/
@@ -30,7 +33,7 @@ class AccountRegistrationView(APIView):
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
+            user = user_create(**serializer.validated_data)
             refresh = RefreshToken.for_user(user)
             
             return Response({
@@ -155,10 +158,14 @@ class AdminUserListView(generics.ListAPIView):
     Description: Lists all users in the system.
     Access: Admin
     """
-    queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
 
+    def get_queryset(self):
+        return user_list()
+
+
+from .services import user_toggle_status, user_change_role
 
 class AdminUserToggleStatusView(APIView):
     """
@@ -170,12 +177,12 @@ class AdminUserToggleStatusView(APIView):
     
     def patch(self, request, pk):
         try:
-            user = User.objects.get(pk=pk)
-            user.is_active = not user.is_active
-            user.save()
+            from .selectors import user_get_by_id
+            user = user_get_by_id(pk)
+            is_active = user_toggle_status(user=user)
             return Response({
-                'message': f'User {"enabled" if user.is_active else "disabled"} successfully',
-                'is_active': user.is_active
+                'message': f'User {"enabled" if is_active else "disabled"} successfully',
+                'is_active': is_active
             }, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -191,15 +198,10 @@ class AdminUserChangeRoleView(APIView):
     
     def patch(self, request, pk):
         try:
-            user = User.objects.get(pk=pk)
+            from .selectors import user_get_by_id
+            user = user_get_by_id(pk)
             role = request.data.get('role')
-            if role not in dict(User.ROLE_CHOICES):
-                return Response({'error': 'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            user.role = role
-            # Sync is_staff with admin role
-            user.is_staff = (role == 'admin')
-            user.save()
+            user_change_role(user=user, role=role)
             return Response({
                 'message': f'User role updated to {role} successfully',
                 'role': user.role,
@@ -207,3 +209,5 @@ class AdminUserChangeRoleView(APIView):
             }, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
