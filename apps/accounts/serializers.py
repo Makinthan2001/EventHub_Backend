@@ -26,15 +26,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return attrs
     
     def create(self, validated_data):
-        validated_data.pop('password2')
-        user = User.objects.create_user(
-            email=validated_data['email'],
-            password=validated_data['password'],
-            full_name=validated_data['full_name'],
-            phone=validated_data.get('phone', ''),
-            role='organizer'
-        )
-        return user
+        from .services import user_create
+        return user_create(**validated_data)
 
 
 class UserLoginSerializer(serializers.Serializer):
