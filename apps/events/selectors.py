@@ -2,13 +2,13 @@ from django.db.models import QuerySet, Q
 from .models import Event, EventRegistration
 
 def event_list_approved() -> QuerySet:
-    return Event.objects.filter(status='approved')
+    return Event.objects.filter(status='approved', is_deleted=False)
 
 def event_list_by_organizer(organizer) -> QuerySet:
-    return Event.objects.filter(organizer=organizer)
+    return Event.objects.filter(organizer=organizer, is_deleted=False)
 
 def event_list_pending() -> QuerySet:
-    return Event.objects.filter(status='pending')
+    return Event.objects.filter(status='pending', is_deleted=False)
 
 def event_get_stats(event: Event) -> dict:
     registrations = EventRegistration.objects.filter(event=event)

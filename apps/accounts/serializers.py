@@ -10,12 +10,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     """Serializer for user registration"""
     password = serializers.CharField(write_only=True, min_length=6, style={'input_type': 'password'})
     password2 = serializers.CharField(write_only=True, min_length=6, style={'input_type': 'password'}, label='Confirm Password')
-    phone_number = serializers.CharField(source='phone', required=False, allow_blank=True)
     
     class Meta:
         model = User
-        fields = ['id', 'email', 'full_name', 'phone_number', 'password', 'password2', 'role']
-        read_only_fields = ['role']
+        fields = ['id', 'email', 'full_name', 'mobile_number', 'password', 'password2', 'role']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -26,8 +24,15 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return attrs
     
     def create(self, validated_data):
-        from .services import user_create
-        return user_create(**validated_data)
+        validated_data.pop('password2')
+        user = User.objects.create_user(
+            email=validated_data['email'],
+            password=validated_data['password'],
+            full_name=validated_data['full_name'],
+            mobile_number=validated_data.get('mobile_number', ''),
+            role=validated_data.get('role', 'user')
+        )
+        return user
 
 
 class UserLoginSerializer(serializers.Serializer):
@@ -59,8 +64,8 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'email', 'full_name', 'phone', 'profile_picture', 'date_joined', 'role', 'is_staff', 'is_active']
-        read_only_fields = ['id', 'date_joined', 'is_staff']
+        fields = ['id', 'email', 'full_name', 'mobile_number', 'role', 'is_active', 'date_joined']
+        read_only_fields = ['id', 'date_joined']
 
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
@@ -68,7 +73,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['full_name', 'phone', 'profile_picture']
+        fields = ['full_name', 'mobile_number']
 
 
 class ChangePasswordSerializer(serializers.Serializer):

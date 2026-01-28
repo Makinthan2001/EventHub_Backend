@@ -1,228 +1,67 @@
-"""
-VIEWS - Event Management API endpoints (Controller layer)
-"""
-from rest_framework import status, generics, permissions, filters
+from rest_framework import viewsets, permissions, status, filters
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from django.db.models import Q
-from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import Event, EventRegistration, Ticket
-from .serializers import (
-    EventListSerializer, EventDetailSerializer, EventCreateSerializer,
-    EventRegistrationSerializer, EventRegistrationCreateSerializer
-)
-from .services import event_create, event_update, event_approve, event_reject, event_registration_create
-from .selectors import event_list_approved, event_list_by_organizer, event_list_pending, event_get_stats
+from .models import Category, Event, Ticket, Payment
+from .serializers import CategorySerializer, EventSerializer, TicketSerializer, PaymentSerializer
 
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['category_name']
 
-class IsOwnerOrReadOnly(permissions.BasePermission):
-    """Custom permission - only owner can edit"""
-    
-    def has_object_permission(self, request, view, obj):
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        return obj.organizer == request.user
-
-
-class IsAdminOrReadOnly(permissions.BasePermission):
-    """Custom permission - only admin can approve/reject"""
-    
-    def has_permission(self, request, view):
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        return request.user and request.user.is_staff
-
-
-class EventListCreateView(generics.ListCreateAPIView):
-    """
-    GET /api/events/ - List all approved events
-    POST /api/events/ - Create new event (authenticated users)
-    """
-    serializer_class = EventListSerializer
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['title', 'category', 'location']
-    ordering_fields = ['event_date', 'created_at']
-    ordering = ['-created_at']
-    
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [permissions.IsAuthenticated()]
-        return [permissions.AllowAny()]
-    
-    def get_queryset(self):
-        queryset = event_list_approved()
-        
-        # Filter by category
-        category = self.request.query_params.get('category', None)
-        if category and category != 'All Categories':
-            queryset = queryset.filter(category=category)
-        
-        # Filter by date
-        date = self.request.query_params.get('date', None)
-        if date:
-            queryset = queryset.filter(event_date=date)
-        
-        # Filter by location
-        location = self.request.query_params.get('location', None)
-        if location and location != 'All Locations':
-            queryset = queryset.filter(Q(location__icontains=location) | Q(full_location__icontains=location))
-        
-        return queryset
-    
-    def perform_create(self, serializer):
-        event_create(organizer=self.request.user, **serializer.validated_data)
-
-
-class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    GET /api/events/<id>/ - Get event details
-    PUT/PATCH /api/events/<id>/ - Update event (owner only)
-    DELETE /api/events/<id>/ - Delete event (owner only)
-    """
+class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
-    serializer_class = EventDetailSerializer
-    permission_classes = [IsOwnerOrReadOnly]
-    
-    def get_serializer_class(self):
-        if self.request.method in ['PUT', 'PATCH']:
-            return EventCreateSerializer
-        return EventDetailSerializer
-    
-    def perform_update(self, serializer):
-        # When user edits, set status back to pending
-        serializer.save(status='pending')
+    serializer_class = EventSerializer
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['category', 'status', 'is_free', 'auth_id']
+    search_fields = ['title', 'location', 'email']
+    ordering_fields = ['event_date', 'created_at']
 
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
-class MyEventsView(generics.ListAPIView):
-    """
-    GET /api/events/my-events/ - List events created by current user
-    """
-    serializer_class = EventListSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        return event_list_by_organizer(organizer=self.request.user)
+    def perform_create(self, serializer):
+        serializer.save(auth_id=self.request.user)
 
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def approve(self, request, pk=None):
+        event = self.get_object()
+        event.status = 'accepted'
+        event.save()
+        return Response({'status': 'event accepted'})
 
-class AdminEventApproveView(APIView):
-    """
-    Endpoint: POST /api/events/<id>/approve/
-    Description: Approves a pending event.
-    Access: Admin
-    """
-    permission_classes = [permissions.IsAdminUser]
-    
-    def post(self, request, pk):
-        event = get_object_or_404(Event, pk=pk)
-        event_approve(event=event)
-        
-        return Response({
-            'message': 'Event approved successfully',
-            'event': EventDetailSerializer(event).data
-        }, status=status.HTTP_200_OK)
-
-
-class AdminEventRejectView(APIView):
-    """
-    Endpoint: POST /api/events/<id>/reject/
-    Description: Rejects a pending event.
-    Access: Admin
-    """
-    permission_classes = [permissions.IsAdminUser]
-    
-    def post(self, request, pk):
-        event = get_object_or_404(Event, pk=pk)
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def reject(self, request, pk=None):
+        event = self.get_object()
         event.status = 'rejected'
         event.save()
-        
-        return Response({
-            'message': 'Event rejected',
-            'event': EventDetailSerializer(event).data
-        }, status=status.HTTP_200_OK)
+        return Response({'status': 'event rejected'})
 
+class TicketViewSet(viewsets.ModelViewSet):
+    queryset = Ticket.objects.all()
+    serializer_class = TicketSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['event', 'is_deleted_field']
 
-class AdminPendingEventsView(generics.ListAPIView):
-    """
-    Endpoint: GET /api/events/pending/
-    Description: Lists all events awaiting approval.
-    Access: Admin
-    """
-    serializer_class = EventListSerializer
-    permission_classes = [permissions.IsAdminUser]
-    def get_queryset(self):
-        return event_list_pending()
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
-
-class EventRegistrationCreateView(APIView):
-    """
-    Endpoint: POST /api/events/<event_id>/register/
-    Description: Registers the authenticated user for an event.
-    Access: Authenticated
-    """
+class PaymentViewSet(viewsets.ModelViewSet):
+    queryset = Payment.objects.all()
+    serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
-    def post(self, request, event_id):
-        # We ensure the event_id in URL matches the one in data if provided
-        # but the serializer handles the core logic.
-        serializer = EventRegistrationCreateSerializer(
-            data=request.data, 
-            context={'request': request}
-        )
-        if serializer.is_valid():
-            registration = serializer.save()
-            return Response({
-                'message': 'Registration successful',
-                'registration': EventRegistrationSerializer(registration).data
-            }, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['ticket', 'email']
+    search_fields = ['transaction_id', 'full_name', 'email']
 
-
-class MyRegistrationsView(generics.ListAPIView):
-    """
-    GET /api/events/my-registrations/ - List user's event registrations
-    """
-    serializer_class = EventRegistrationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        return EventRegistration.objects.filter(user=self.request.user)
-
-
-class EventRegistrationsView(generics.ListAPIView):
-    """
-    GET /api/events/<event_id>/registrations/ - List registrations for an event (owner/admin only)
-    """
-    serializer_class = EventRegistrationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        event_id = self.kwargs['event_id']
-        event = get_object_or_404(Event, pk=event_id)
-        
-        # Only event owner or admin can view registrations
-        if event.organizer != self.request.user and not self.request.user.is_staff:
-            return EventRegistration.objects.none()
-        
-        return EventRegistration.objects.filter(event=event)
-
-
-class EventStatsView(APIView):
-    """
-    GET /api/events/<event_id>/stats/ - Get event statistics (owner/admin only)
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get(self, request, event_id):
-        event = get_object_or_404(Event, pk=event_id)
-        
-        # Only event owner or admin can view stats
-        if event.organizer != request.user and not request.user.is_staff:
-            return Response(
-                {'error': 'Permission denied'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        stats = event_get_stats(event=event)
-        return Response(stats, status=status.HTTP_200_OK)
+    def perform_create(self, serializer):
+        # Additional logic for booking seats could go here or in a service
+        serializer.save()
