@@ -1,14 +1,12 @@
-"""
-MODELS - Event Management Database Schema using Django ORM
-"""
 from django.db import models
 from django.conf import settings
 from django.utils import timezone
+from apps.core.models import BaseModel
 
-
-class Event(models.Model):
-    """Event model - Main event information"""
-    
+class Event(BaseModel):
+    """
+    Main event model. Reorganized into groups for better readability.
+    """
     CATEGORY_CHOICES = [
         ('Music', 'Music'),
         ('Tech', 'Tech'),
@@ -24,46 +22,47 @@ class Event(models.Model):
         ('rejected', 'Rejected'),
         ('cancelled', 'Cancelled'),
     ]
-    
-    # Basic Information
+
+    # --- Basic Information ---
     title = models.CharField(max_length=255)
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
     image = models.URLField(max_length=500, blank=True, null=True)
-    organizer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='organized_events')
+    organizer = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='organized_events'
+    )
+    is_free = models.BooleanField(default=False)
     
-    # Date and Time
+    # --- Date and Time ---
     event_date = models.DateField()
     event_time = models.TimeField()
     full_time = models.CharField(max_length=100, blank=True, null=True)
     duration = models.CharField(max_length=100, blank=True, null=True)
     
-    # Location
+    # --- Location ---
     location = models.CharField(max_length=255)
     full_location = models.TextField(blank=True, null=True)
     
-    # Description
-    description_intro = models.TextField(blank=True, null=True)
+    # --- Description ---
+    description_intro = models.TextField()
     description_details = models.TextField(blank=True, null=True)
     description_closing = models.TextField(blank=True, null=True)
     description_final_note = models.TextField(blank=True, null=True)
     
-    # Target Audience
+    # --- Target Audience ---
     audience = models.TextField(blank=True, null=True)
     
-    # Payment Information
+    # --- Payment Information ---
     payment_instructions = models.TextField(blank=True, null=True)
     payment_contact_name = models.CharField(max_length=255, blank=True, null=True)
     payment_contact_email = models.EmailField(blank=True, null=True)
     payment_contact_phone = models.CharField(max_length=20, blank=True, null=True)
     payment_deadline = models.CharField(max_length=255, blank=True, null=True)
     
-    # Status
+    # --- Status ---
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    
-    # Metadata
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         db_table = 'events'
         verbose_name = 'Event'
@@ -74,79 +73,76 @@ class Event(models.Model):
             models.Index(fields=['event_date']),
             models.Index(fields=['organizer']),
         ]
-    
+
     def __str__(self):
         return self.title
-    
+
     @property
     def is_upcoming(self):
         return self.event_date >= timezone.now().date()
 
-
-class EventAgenda(models.Model):
-    """Event agenda/schedule items"""
-    
+class EventAgenda(BaseModel):
+    """
+    Event schedule item.
+    """
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='agenda_items')
     time = models.CharField(max_length=50)
     title = models.CharField(max_length=255)
     order = models.IntegerField(default=0)
-    
+
     class Meta:
         db_table = 'event_agenda'
         verbose_name = 'Event Agenda Item'
         verbose_name_plural = 'Event Agenda Items'
         ordering = ['order', 'id']
-    
+
     def __str__(self):
         return f"{self.event.title} - {self.time}: {self.title}"
 
-
-class Ticket(models.Model):
-    """Ticket types for events"""
-    
+class Ticket(BaseModel):
+    """
+    Ticket type for an event.
+    """
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='tickets')
     name = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     available_seats = models.IntegerField(default=0)
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         db_table = 'tickets'
         verbose_name = 'Ticket'
         verbose_name_plural = 'Tickets'
         ordering = ['price']
-    
+
     def __str__(self):
         return f"{self.event.title} - {self.name}"
-    
+
     @property
     def is_available(self):
         booked = self.registrations.filter(status='confirmed').count()
         return booked < self.available_seats
 
-
-class TicketBenefit(models.Model):
-    """Benefits for each ticket type"""
-    
+class TicketBenefit(BaseModel):
+    """
+    Benefit associated with a ticket.
+    """
     ticket = models.ForeignKey(Ticket, on_delete=models.CASCADE, related_name='benefits')
     benefit = models.CharField(max_length=255)
     order = models.IntegerField(default=0)
-    
+
     class Meta:
         db_table = 'ticket_benefits'
         verbose_name = 'Ticket Benefit'
         verbose_name_plural = 'Ticket Benefits'
         ordering = ['order']
-    
+
     def __str__(self):
         return f"{self.ticket.name} - {self.benefit}"
 
-
-class EventRegistration(models.Model):
-    """User registration for events"""
-    
+class EventRegistration(BaseModel):
+    """
+    User registration for an event and ticket.
+    """
     STATUS_CHOICES = [
         ('pending', 'Pending Payment'),
         ('confirmed', 'Confirmed'),
@@ -171,11 +167,7 @@ class EventRegistration(models.Model):
     
     # Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    
-    # Metadata
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         db_table = 'event_registrations'
         verbose_name = 'Event Registration'
@@ -186,6 +178,6 @@ class EventRegistration(models.Model):
             models.Index(fields=['user', 'status']),
             models.Index(fields=['event', 'status']),
         ]
-    
+
     def __str__(self):
         return f"{self.user.email} - {self.event.title}"

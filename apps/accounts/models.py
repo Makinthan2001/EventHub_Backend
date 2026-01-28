@@ -1,10 +1,7 @@
-"""
-MODELS - Database schema using Django ORM
-"""
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
-
+from apps.core.models import BaseModel
 
 class UserManager(BaseUserManager):
     """Custom user manager for email-based authentication"""
@@ -31,21 +28,26 @@ class UserManager(BaseUserManager):
         
         return self.create_user(email, password, **extra_fields)
 
-
-class User(AbstractBaseUser, PermissionsMixin):
-    """Custom User model with email as username"""
-    
+class User(AbstractBaseUser, PermissionsMixin, BaseModel):
+    """
+    Custom User model with email as username.
+    Inherits from BaseModel to get timestamps and soft delete capability.
+    """
     ROLE_CHOICES = [
         ('admin', 'Admin'),
         ('organizer', 'Organizer'),
     ]
     
+    # --- Authentication ---
     email = models.EmailField(unique=True, max_length=255)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='organizer')
+    
+    # --- Profile ---
     full_name = models.CharField(max_length=255)
     phone = models.CharField(max_length=20, blank=True, null=True)
     profile_picture = models.FileField(upload_to='profiles/', blank=True, null=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='organizer')
     
+    # --- Permissions & Status ---
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)

@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'corsheaders',
     
     # Local apps
+    'apps.core',
     'apps.accounts',
     'apps.events',
 ]

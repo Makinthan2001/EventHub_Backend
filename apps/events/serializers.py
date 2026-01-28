@@ -66,7 +66,7 @@ class EventListSerializer(serializers.ModelSerializer):
         model = Event
         fields = [
             'id', 'title', 'category', 'image', 'event_date', 'event_time',
-            'location', 'organizer_name', 'status', 'created_at'
+            'location', 'organizer_name', 'status', 'is_deleted', 'created_at'
         ]
 
 
@@ -86,7 +86,7 @@ class EventDetailSerializer(serializers.ModelSerializer):
             'audience', 'agenda_items', 'tickets',
             'payment_instructions', 'payment_contact_name', 'payment_contact_email',
             'payment_contact_phone', 'payment_deadline',
-            'status', 'created_at', 'updated_at'
+            'status', 'is_deleted', 'created_at', 'updated_at'
         ]
 
 
@@ -106,7 +106,7 @@ class EventCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = [
-            'id', 'title', 'category', 'image',
+            'id', 'title', 'category', 'image', 'is_free',
             'event_date', 'event_time', 'full_time', 'duration',
             'location', 'full_location',
             'description_intro', 'description_details', 'description_closing', 'description_final_note',
@@ -116,34 +116,47 @@ class EventCreateSerializer(serializers.ModelSerializer):
         ]
     
     def create(self, validated_data):
+        from django.db import transaction
+        
         agenda_data = validated_data.pop('agenda', [])
         tickets_data = validated_data.pop('tickets', [])
+        is_free = validated_data.get('is_free', False)
         
-        # Create event
-        event = Event.objects.create(**validated_data)
-        
-        # Create agenda items
-        for index, item in enumerate(agenda_data):
-            EventAgenda.objects.create(
-                event=event,
-                time=item.get('time', ''),
-                title=item.get('title', ''),
-                order=index
-            )
-        
-        # Create tickets with benefits
-        for ticket_data in tickets_data:
-            benefits = ticket_data.pop('benefits', [])
-            ticket = Ticket.objects.create(event=event, **ticket_data)
+        with transaction.atomic():
+            # Create event
+            event = Event.objects.create(**validated_data)
             
-            for index, benefit in enumerate(benefits):
-                TicketBenefit.objects.create(
-                    ticket=ticket,
-                    benefit=benefit,
+            # Create agenda items
+            for index, item in enumerate(agenda_data):
+                EventAgenda.objects.create(
+                    event=event,
+                    time=item.get('time', ''),
+                    title=item.get('title', ''),
                     order=index
                 )
-        
-        return event
+            
+            # Create tickets only if not free
+            if not is_free:
+                for ticket_data in tickets_data:
+                    benefits = ticket_data.pop('benefits', [])
+                    ticket = Ticket.objects.create(event=event, **ticket_data)
+                    
+                    for index, benefit in enumerate(benefits):
+                        TicketBenefit.objects.create(
+                            ticket=ticket,
+                            benefit=benefit,
+                            order=index
+                        )
+            else:
+                # Optional: Create a default 'Free Access' ticket if free
+                Ticket.objects.create(
+                    event=event,
+                    name='General Admission',
+                    price=0.00,
+                    available_seats=1000 # Default large number
+                )
+            
+            return event
     
     def update(self, instance, validated_data):
         agenda_data = validated_data.pop('agenda', None)
