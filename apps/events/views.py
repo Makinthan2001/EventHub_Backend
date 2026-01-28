@@ -9,12 +9,11 @@ from django.shortcuts import get_object_or_404
 
 from .models import Event, EventRegistration, Ticket
 from .serializers import (
-    EventListSerializer,
-    EventDetailSerializer,
-    EventCreateSerializer,
-    EventRegistrationSerializer,
-    EventRegistrationCreateSerializer
+    EventListSerializer, EventDetailSerializer, EventCreateSerializer,
+    EventRegistrationSerializer, EventRegistrationCreateSerializer
 )
+from .services import event_create, event_update, event_approve, event_reject, event_registration_create
+from .selectors import event_list_approved, event_list_by_organizer, event_list_pending, event_get_stats
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
@@ -52,7 +51,7 @@ class EventListCreateView(generics.ListCreateAPIView):
         return [permissions.AllowAny()]
     
     def get_queryset(self):
-        queryset = Event.objects.filter(status='approved')
+        queryset = event_list_approved()
         
         # Filter by category
         category = self.request.query_params.get('category', None)
@@ -72,7 +71,7 @@ class EventListCreateView(generics.ListCreateAPIView):
         return queryset
     
     def perform_create(self, serializer):
-        serializer.save(organizer=self.request.user, status='pending')
+        event_create(organizer=self.request.user, **serializer.validated_data)
 
 
 class EventDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -103,7 +102,7 @@ class MyEventsView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        return Event.objects.filter(organizer=self.request.user)
+        return event_list_by_organizer(organizer=self.request.user)
 
 
 class AdminEventApproveView(APIView):
@@ -116,8 +115,7 @@ class AdminEventApproveView(APIView):
     
     def post(self, request, pk):
         event = get_object_or_404(Event, pk=pk)
-        event.status = 'approved'
-        event.save()
+        event_approve(event=event)
         
         return Response({
             'message': 'Event approved successfully',
@@ -152,7 +150,8 @@ class AdminPendingEventsView(generics.ListAPIView):
     """
     serializer_class = EventListSerializer
     permission_classes = [permissions.IsAdminUser]
-    queryset = Event.objects.filter(status='pending')
+    def get_queryset(self):
+        return event_list_pending()
 
 
 class EventRegistrationCreateView(APIView):
@@ -225,15 +224,5 @@ class EventStatsView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        registrations = EventRegistration.objects.filter(event=event)
-        
-        stats = {
-            'total_registrations': registrations.count(),
-            'confirmed_registrations': registrations.filter(status='confirmed').count(),
-            'pending_registrations': registrations.filter(status='pending').count(),
-            'cancelled_registrations': registrations.filter(status='cancelled').count(),
-            'total_tickets_sold': sum(r.number_of_tickets for r in registrations.filter(status='confirmed')),
-            'total_revenue': sum(r.total_amount for r in registrations.filter(status='confirmed')),
-        }
-        
+        stats = event_get_stats(event=event)
         return Response(stats, status=status.HTTP_200_OK)
