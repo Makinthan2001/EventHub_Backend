@@ -5,14 +5,14 @@ from .models import User
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ['email', 'full_name', 'phone', 'is_staff', 'is_active', 'date_joined']
+    list_display = ['email', 'full_name', 'mobile_number', 'is_staff', 'is_active', 'date_joined']
     list_filter = ['is_staff', 'is_active', 'date_joined']
-    search_fields = ['email', 'full_name', 'phone']
+    search_fields = ['email', 'full_name', 'mobile_number']
     ordering = ['-date_joined']
     
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Personal Info', {'fields': ('full_name', 'phone', 'profile_picture')}),
+        ('Personal Info', {'fields': ('full_name', 'mobile_number')}),
         ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
@@ -20,6 +20,6 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('email', 'full_name', 'password1', 'password2'),
+            'fields': ('email', 'full_name', 'password'),
         }),
     )

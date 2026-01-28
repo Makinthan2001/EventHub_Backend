@@ -31,23 +31,18 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     """
     Custom User model with email as username.
-    Inherits from BaseModel to get timestamps and soft delete capability.
     """
     ROLE_CHOICES = [
         ('admin', 'Admin'),
         ('organizer', 'Organizer'),
+        ('user', 'User'),
     ]
     
-    # --- Authentication ---
     email = models.EmailField(unique=True, max_length=255)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='organizer')
-    
-    # --- Profile ---
     full_name = models.CharField(max_length=255)
-    phone = models.CharField(max_length=20, blank=True, null=True)
-    profile_picture = models.FileField(upload_to='profiles/', blank=True, null=True)
+    mobile_number = models.CharField(max_length=20, blank=True, null=True)
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
     
-    # --- Permissions & Status ---
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
@@ -64,12 +59,4 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
         ordering = ['-date_joined']
     
     def __str__(self):
-        return self.email
-    
-    @property
-    def get_full_name(self):
-        return self.full_name
-    
-    @property
-    def get_short_name(self):
-        return self.email
+        return f"{self.full_name} ({self.email})"
