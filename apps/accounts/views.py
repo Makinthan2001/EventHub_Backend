@@ -1,6 +1,7 @@
 from rest_framework import status, permissions, viewsets, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -64,7 +65,7 @@ class UserViewSet(viewsets.ModelViewSet):
             return [IsAdminRole()]
         if self.action in ['list', 'retrieve']:
             return [IsAdminRole()]
-        if self.action in ['update', 'partial_update', 'destroy']:
+        if self.action in ['update', 'partial_update', 'destroy', 'change_password']:
             return [permissions.IsAuthenticated()]
         return [IsAdminRole()]
     
@@ -81,3 +82,36 @@ class UserViewSet(viewsets.ModelViewSet):
                 return User.objects.all()
             return User.objects.filter(id=self.request.user.id)
         return User.objects.none()
+    
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def change_password(self, request):
+        """Change password for the authenticated user"""
+        user = request.user
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+        
+        if not old_password or not new_password:
+            return Response(
+                {'error': 'Both old_password and new_password are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not user.check_password(old_password):
+            return Response(
+                {'error': 'Incorrect old password'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(new_password) < 6:
+            return Response(
+                {'error': 'New password must be at least 6 characters long'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user.set_password(new_password)
+        user.save()
+        
+        return Response(
+            {'message': 'Password changed successfully'},
+            status=status.HTTP_200_OK
+        )
