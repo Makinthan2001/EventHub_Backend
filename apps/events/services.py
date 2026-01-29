@@ -1,6 +1,4 @@
-from django.db import transaction
-from django.core.exceptions import ValidationError
-from .models import Event, EventAgenda, Ticket, TicketBenefit, EventRegistration
+from .models import Event, Ticket, Payment
 
 @transaction.atomic
 def event_create(*, organizer, **data) -> Event:
@@ -41,13 +39,9 @@ def event_reject(*, event: Event) -> Event:
     return event
 
 @transaction.atomic
-def event_registration_create(*, user, event, ticket, **data) -> EventRegistration:
-    if not ticket.is_available:
-        raise ValidationError("Selected ticket is sold out.")
-        
-    registration = EventRegistration.objects.create(
-        user=user,
-        event=event,
+def event_registration_create(*, user, event, ticket, **data) -> Payment:
+    # Basic validation could be added here
+    registration = Payment.objects.create(
         ticket=ticket,
         **data
     )

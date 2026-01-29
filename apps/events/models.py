@@ -33,10 +33,15 @@ class Event(BaseModel):
     start_time = models.TimeField()
     end_time = models.TimeField()
     location = models.CharField(max_length=255)
+    image = models.URLField(max_length=500, blank=True, null=True)
     is_free = models.BooleanField(default=False)
     mobile_number = models.CharField(max_length=20)
     email = models.EmailField()
+    description = models.TextField(blank=True, null=True)
+    agenda = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    total_seats = models.PositiveIntegerField(default=0)
+    booked_seats = models.PositiveIntegerField(default=0)
     auth_id = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='events')
 
     class Meta:

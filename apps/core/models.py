@@ -14,9 +14,8 @@ class TimestampedModel(models.Model):
 class SoftDeleteModel(models.Model):
     is_deleted = models.BooleanField(default=False)
 
-    objects = models.Manager()  # Default manager
-    all_objects = models.Manager()  # To access deleted ones
-    active_objects = SoftDeleteManager()  # Custom manager
+    objects = SoftDeleteManager()  # Custom manager (filtered)
+    all_objects = models.Manager()  # To access all including deleted ones
 
     class Meta:
         abstract = True
