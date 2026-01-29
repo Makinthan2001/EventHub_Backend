@@ -40,5 +40,11 @@ urlpatterns = [
 
     # --- PAYMENT ENDPOINTS ---
     path('payments/', PaymentViewSet.as_view({'get': 'list', 'post': 'create'}), name='payment-list'),
-    path('payments/<int:pk>/', PaymentViewSet.as_view({'get': 'retrieve'}), name='payment-detail'),
+    path('payments/summary/', PaymentViewSet.as_view({'get': 'summary'}), name='payment-summary'),
+    path('payments/<int:pk>/', PaymentViewSet.as_view({
+        'get': 'retrieve',
+        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='payment-detail'),
 ]

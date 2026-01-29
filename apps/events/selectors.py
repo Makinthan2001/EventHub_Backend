@@ -1,5 +1,4 @@
-from django.db.models import QuerySet, Q
-from .models import Event, EventRegistration
+from .models import Event, Payment
 
 def event_list_approved() -> QuerySet:
     return Event.objects.filter(status='approved', is_deleted=False)
@@ -11,12 +10,12 @@ def event_list_pending() -> QuerySet:
     return Event.objects.filter(status='pending', is_deleted=False)
 
 def event_get_stats(event: Event) -> dict:
-    registrations = EventRegistration.objects.filter(event=event)
+    payments = Payment.objects.filter(ticket__event=event)
     return {
-        'total_registrations': registrations.count(),
-        'confirmed_registrations': registrations.filter(status='confirmed').count(),
-        'pending_registrations': registrations.filter(status='pending').count(),
-        'cancelled_registrations': registrations.filter(status='cancelled').count(),
-        'total_tickets_sold': sum(r.number_of_tickets for r in registrations.filter(status='confirmed')),
-        'total_revenue': sum(r.total_amount for r in registrations.filter(status='confirmed')),
+        'total_registrations': payments.count(),
+        'confirmed_registrations': payments.count(), # Assuming all payments are confirmed for now
+        'pending_registrations': 0,
+        'cancelled_registrations': 0,
+        'total_tickets_sold': sum(p.ticket_count for p in payments),
+        'total_revenue': sum(p.amount for p in payments),
     }

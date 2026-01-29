@@ -75,11 +75,60 @@ class TicketViewSet(viewsets.ModelViewSet):
 class PaymentViewSet(viewsets.ModelViewSet):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
-    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['ticket', 'email']
+    filterset_fields = ['ticket', 'email', 'ticket__event']
     search_fields = ['transaction_id', 'full_name', 'email']
 
+    def get_permissions(self):
+        if self.action == 'create':
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'admin':
+            return self.queryset
+        return self.queryset.filter(ticket__event__auth_id=user)
+
     def perform_create(self, serializer):
-        # Additional logic for booking seats could go here or in a service
-        serializer.save()
+        from django.db import transaction
+        from django.shortcuts import get_object_or_404
+        
+        with transaction.atomic():
+            ticket_id = self.request.data.get('ticket')
+            ticket_count = int(self.request.data.get('ticket_count', 1))
+            ticket = get_object_or_404(Ticket, id=ticket_id)
+            event = ticket.event
+
+            # Check for generic event seat availability if applicable
+            if event.total_seats > 0 and (event.booked_seats + ticket_count) > event.total_seats:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError("Not enough seats available for this event.")
+
+            # Check for specific ticket seat availability
+            if (ticket.booked_seats + ticket_count) > ticket.total_seats:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError("Not enough slots available for this ticket type.")
+
+            # Increment booked seats
+            ticket.booked_seats += ticket_count
+            ticket.save()
+            
+            event.booked_seats += ticket_count
+            event.save()
+
+            serializer.save()
+
+    @action(detail=False, methods=['get'])
+    def summary(self, request):
+        """Get total revenue and transaction count"""
+        queryset = self.filter_queryset(self.get_queryset())
+        from django.db.models import Sum, Count
+        summary_data = queryset.aggregate(
+            total_revenue=Sum('amount'),
+            total_transactions=Count('id')
+        )
+        return Response({
+            'total_revenue': summary_data['total_revenue'] or 0,
+            'total_transactions': summary_data['total_transactions'] or 0
+        })

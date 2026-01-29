@@ -88,12 +88,17 @@ class EventSerializer(serializers.ModelSerializer):
         return data
 
 class PaymentSerializer(serializers.ModelSerializer):
+    event_title = serializers.ReadOnlyField(source='ticket.event.title')
+    event_date = serializers.ReadOnlyField(source='ticket.event.event_date')
+    location = serializers.ReadOnlyField(source='ticket.event.location')
+    ticket_name = serializers.ReadOnlyField(source='ticket.name')
+    
     class Meta:
         model = Payment
         fields = [
             'id', 'full_name', 'mobile_number', 'email', 
             'ticket_count', 'amount', 'ticket', 'transaction_id',
-            'created_at'
+            'created_at', 'event_title', 'event_date', 'location', 'ticket_name'
         ]
         read_only_fields = ['id', 'created_at']
 
