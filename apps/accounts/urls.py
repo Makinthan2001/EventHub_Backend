@@ -17,6 +17,7 @@ urlpatterns = [
     
     # User Management API
     path('users/', UserViewSet.as_view({'get': 'list', 'post': 'create'}), name='user-list'),
+    path('users/change_password/', UserViewSet.as_view({'post': 'change_password'}), name='user-change-password'),
     path('users/<int:pk>/', UserViewSet.as_view({
         'get': 'retrieve', 
         'put': 'update', 
