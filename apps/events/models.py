@@ -7,6 +7,7 @@ class Category(BaseModel):
     Category model for grouping events.
     """
     category_name = models.CharField(max_length=100, unique=True)
+    image = models.ImageField(upload_to='categories/', blank=True, null=True)
 
     class Meta:
         db_table = 'categories'
@@ -33,7 +34,7 @@ class Event(BaseModel):
     start_time = models.TimeField()
     end_time = models.TimeField()
     location = models.CharField(max_length=255)
-    image = models.URLField(max_length=500, blank=True, null=True)
+    image = models.ImageField(upload_to='events/', blank=True, null=True)
     is_free = models.BooleanField(default=False)
     mobile_number = models.CharField(max_length=20)
     email = models.EmailField()

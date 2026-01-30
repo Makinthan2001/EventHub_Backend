@@ -5,7 +5,7 @@ from apps.accounts.serializers import UserSerializer
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ['id', 'category_name']
+        fields = ['id', 'category_name', 'image']
 
 class TicketSerializer(serializers.ModelSerializer):
     class Meta:
@@ -22,6 +22,7 @@ class TicketSerializer(serializers.ModelSerializer):
         return data
 
 from django.db import transaction
+import json
 
 class EventSerializer(serializers.ModelSerializer):
     category_name = serializers.ReadOnlyField(source='category.category_name')
@@ -38,6 +39,25 @@ class EventSerializer(serializers.ModelSerializer):
             'organizer_name', 'tickets', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'auth_id', 'booked_seats', 'created_at', 'updated_at']
+
+    def to_internal_value(self, data):
+        # Handle tickets field when it comes as JSON string from FormData
+        if isinstance(data.get('tickets'), str):
+            try:
+                data = data.copy()
+                data['tickets'] = json.loads(data['tickets'])
+            except (json.JSONDecodeError, AttributeError):
+                pass
+        
+        # Handle agenda field when it comes as JSON string from FormData
+        if isinstance(data.get('agenda'), str):
+            try:
+                data = data.copy()
+                data['agenda'] = json.loads(data['agenda'])
+            except (json.JSONDecodeError, AttributeError):
+                pass
+        
+        return super().to_internal_value(data)
 
     def create(self, validated_data):
         tickets_data = validated_data.pop('tickets', [])
